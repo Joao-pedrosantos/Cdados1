@@ -1,0 +1,504 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# # Projeto 1 - Ciência dos Dados
+
+# Nome: Gabriela Kimi Katsurayama
+# 
+# Nome: João Pedro Rodrigues dos Santos
+# 
+# Nome: Luiza Ferreira Ehrenberger
+
+# Atenção: Serão permitidos grupos de três pessoas, mas com uma rubrica mais exigente. Grupos deste tamanho precisarão fazer um questionário de avaliação de trabalho em equipe
+
+# ___
+# Carregando algumas bibliotecas:
+
+# In[1]:
+
+
+get_ipython().run_line_magic('matplotlib', 'inline')
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+import re 
+import nltk
+import string
+from nltk.corpus import stopwords
+#nltk.download('stopwords')
+pd.set_option("display.max_colwidth", None)
+
+def cleanup(text):
+    """
+        Função de limpeza muito simples que troca alguns sinais básicos por espaços
+    """
+    #import string
+    punctuation = '[!-.:?;]' # Note que os sinais [] são delimitadores de um conjunto.
+    pattern = re.compile(punctuation)
+    text_subbed = re.sub(pattern, '', text)
+    return text_subbed
+
+
+# In[2]:
+
+
+print('Esperamos trabalhar no diretório')
+print(os.getcwd())
+
+
+# Carregando a base de dados com os tweets classificados como relevantes e não relevantes:
+
+# In[3]:
+
+
+filename = 'Iphone 12 novo.xlsx'
+
+
+# In[4]:
+
+
+train = pd.read_excel(filename)
+train.head(5)
+
+
+# In[5]:
+
+
+test = pd.read_excel(filename, sheet_name = 'Teste')
+test.head(5)
+
+
+# ___
+# ## Classificador automático de sentimento
+# 
+
+# Faça aqui uma descrição do seu produto e o que considerou como relevante ou não relevante na classificação dos tweets.
+# 
+# ESCREVA AQUI...
+
+# ___
+# ### Montando um Classificador Naive-Bayes
+# 
+# Considerando apenas as mensagens da planilha Treinamento, ensine  seu classificador.
+
+# In[6]:
+
+
+from typing import Awaitable
+
+
+def limpa_txt(txt):
+  carac = ['\n', ':', '"', '`', '!', '?', ';','(',')', '[', ']', '%', '&', ',', '.', '@', '/']
+  for i in txt:
+    if i in carac:
+        testador = txt.find(i)
+        txt = txt[:testador] + txt[testador+1:]
+  vn = arruma_esp(txt)
+  return vn
+
+def arruma_esp(txt):
+  i = 0
+  frase = ''
+  aa = 0
+  while i < len(txt)+1:
+    if i >= 1:
+        if i >= len(txt):
+            frase += txt[i-1]
+            return frase
+        else:     
+            if txt[i] == ' ' and txt[i-1] == ' ':
+                aa += 1
+            else:     
+                frase += txt[i-1]
+    i += 1
+
+def text_preproc(x):
+  para = stopwords.words("portuguese")
+  x = x.lower()
+  x = ' '.join([word for word in x.split(' ') if word not in para])
+  x = re.sub(r'https*\S+', ' ', x)
+  x = re.sub(r'@\S+', ' ', x)
+  x = re.sub(r'#\S+', ' ', x)
+  x = re.sub(r'\'\w+', '', x)
+  x = re.sub('[%s]' % re.escape(string.punctuation), ' ', x)
+  x = re.sub(r'\w*\d+\w*', '', x)
+  x = re.sub(r'\s{2,}', ' ', x)
+  return x
+
+def corta_frase(frase):
+    tt = frase.lower()
+    tt10 = cleanup(tt)
+    xa = re.sub(r'\w*\d+\w*', '', tt10)
+    xb = re.sub("@\S+", " ", xa)
+    xc = re.sub("https*\S+", " ", xb)
+    xd = limpa_txt(xc)
+    return xd
+
+
+# In[7]:
+
+
+def classifica(frase_cortada):
+    resps = []
+    i = 0
+    probFraseDado0 = 1
+    probFraseDado1 = 1
+    probFraseDado2 = 1
+    probFraseDado3 = 1
+    probFraseDado4 = 1
+
+
+    while i < len(frase_cortada):
+        
+        
+        P_palavra0 = laplace0(frase_cortada[i])
+        P_palavra1 = laplace1(frase_cortada[i])
+        P_palavra2 = laplace2(frase_cortada[i])
+        P_palavra3 = laplace3(frase_cortada[i])
+        P_palavra4 = laplace4(frase_cortada[i])
+        
+        probFraseDado0 *= P_palavra0
+        probFraseDado1 *= P_palavra1
+        probFraseDado2 *= P_palavra2
+        probFraseDado3 *= P_palavra3
+        probFraseDado4 *= P_palavra4
+        i += 1
+    resp0 = probFraseDado0*prob0
+    resp1 = probFraseDado1*prob1
+    resp2 = probFraseDado2*prob2
+    resp3 = probFraseDado3*prob3
+    resp4 = probFraseDado4*prob4
+        
+
+    resps.append(resp0)
+    resps.append(resp1)
+    resps.append(resp2)
+    resps.append(resp3)
+    resps.append(resp4)
+
+    if max(resps) == resp2:
+        return 2
+    if max(resps) == resp0:
+        return 0
+    if max(resps) == resp1:
+        return 1
+    if max(resps) == resp3:
+        return 3
+    if max(resps) == resp4:
+        return 4
+    
+def accuracy():
+    certo = 0
+    for index, row in test.iterrows():
+
+        r = classifica(corta_frase(row['Teste']))
+        if r == row['Classificação']:
+            certo += 1
+    numer.append(r)
+    return certo/len(test)
+
+def laplace0(x):
+    if x not in tabela_tts_mir:
+        qtd = 1
+    else:
+        qtd = 1 + tabela_tts_mir[x]
+        
+    deno = len(serie_tweets0) + len(set(serie_tweets_geral))
+    return qtd/deno
+
+def laplace1(x):
+    if x not in tabela_tts_ir:
+        qtd = 1
+    else:
+        qtd = 1 + tabela_tts_ir[x]
+        
+    deno = len(serie_tweets1) + len(set(serie_tweets_geral))
+    return qtd/deno
+
+def laplace2(x):
+    if x not in tabela_tts_n:
+        qtd = 1
+    else:
+        qtd = 1 + tabela_tts_n[x]
+        
+    deno = len(serie_tweets2) + len(set(serie_tweets_geral))
+    return qtd/deno
+
+def laplace3(x):
+    if x not in tabela_tts_r:
+        qtd = 1
+    else:
+        qtd = 1 + tabela_tts_r[x]
+        
+    deno = len(serie_tweets3) + len(set(serie_tweets_geral))
+    return qtd/deno
+
+def laplace4(x):
+    if x not in tabela_tts_mr:
+        qtd = 1
+    else:
+        qtd = 1 + tabela_tts_mr[x]
+        
+    deno = len(serie_tweets5) + len(set(serie_tweets_geral))
+    return qtd/deno
+
+
+# In[8]:
+
+
+# len(set(serie_tweets_geral))
+
+
+# In[9]:
+
+
+# qtd = train.groupby('Classificação').size().div(len(train))
+# qtd
+
+filtra_linhas_0 = train['Classificação'] == 0
+mir = train.loc[filtra_linhas_0, :]
+
+filtra_linhas_1 = train['Classificação'] == 1
+ir = train.loc[filtra_linhas_1, :]
+
+filtra_linhas_2 = train['Classificação'] == 2
+n = train.loc[filtra_linhas_2, :]
+
+filtra_linhas_3 = train['Classificação'] == 3
+r = train.loc[filtra_linhas_3, :]
+
+filtra_linhas_4 = train['Classificação'] == 4
+mr = train.loc[filtra_linhas_4, :]
+
+
+#/----------------------------------------------------/
+
+m_i_r = mir['Treinamento'].to_string().lower()
+m_i_r2 = text_preproc(m_i_r)
+m_i_r3 = m_i_r2.split()
+serie_tweets0 = pd.Series(m_i_r3)
+tabela_tts_mir_relativa = serie_tweets0.value_counts(True)
+tabela_tts_mir = serie_tweets0.value_counts()
+
+ir_1 = ir['Treinamento'].to_string().lower()
+ir2 = text_preproc(ir_1)
+ir3 = ir2.split()
+serie_tweets1 = pd.Series(ir3)
+tabela_tts_ir_relativa = serie_tweets1.value_counts(True)
+tabela_tts_ir = serie_tweets1.value_counts()
+
+n_1 = n['Treinamento'].to_string().lower()
+n2 = text_preproc(n_1)
+n3 = n2.split()
+serie_tweets2 = pd.Series(n3)
+tabela_tts_n_relativa = serie_tweets2.value_counts(True)
+tabela_tts_n = serie_tweets2.value_counts()
+
+r_1 = r['Treinamento'].to_string().lower()
+r_2 = text_preproc(r_1)
+r_3 = r_2.split()
+serie_tweets3 = pd.Series(r_3)
+tabela_tts_r_relativa = serie_tweets3.value_counts(True)
+tabela_tts_r = serie_tweets3.value_counts()
+
+mr_1 = mr['Treinamento'].to_string().lower()
+mr2 = text_preproc(mr_1)
+mr3 = mr2.split()
+serie_tweets5 = pd.Series(mr3)
+tabela_tts_mr_relativa = serie_tweets5.value_counts(True)
+tabela_tts_mr = serie_tweets5.value_counts()
+
+geral = train['Treinamento'].to_string().lower()
+geral2 = text_preproc(geral)
+geral3 = geral2.split()
+serie_tweets_geral = pd.Series(geral3)
+tabela_tts_geral_relativa = serie_tweets_geral.value_counts(True)
+tabela_tts_geral = serie_tweets_geral.value_counts()
+
+
+# In[10]:
+
+
+todos = [m_i_r2, ir2, n2, r_2, mr2]
+i = 0
+tabela_geral = ''
+while i < len(todos):
+    tabela_geral += todos[i]
+    i += 1
+i = 0
+teste3 = 0
+while i < len(todos):
+    teste3 += len(todos[i])
+    i += 1
+print(teste3)
+
+todas_palavras = tabela_geral.split()
+serie_geral = pd.Series(todas_palavras)
+
+tabela_geral_relativa = serie_geral.value_counts(True)
+
+
+# In[11]:
+
+
+tt = test['Teste'].sample().to_string().lower()
+print(tt)
+
+tt10 = cleanup(tt)
+xa = re.sub(r'\w*\d+\w*', '', tt10)
+xb = re.sub("@\S+", " ", xa)
+xc = re.sub("https*\S+", " ", xb)
+xd = limpa_txt(xc)
+print(xd)
+
+
+# ___
+# ### Verificando a performance do Classificador
+# 
+# Agora você deve testar o seu classificador com a base de Testes.
+
+# In[12]:
+
+
+frase_cortada = xd.split()
+
+#print(tabela_tts_mir_relativa['exibida'])
+print(frase_cortada)
+
+
+# In[13]:
+
+
+prob0 = len(m_i_r2)/teste3
+prob1 = len(ir2)/teste3
+prob2 = len(n2)/teste3
+prob3 = len(r_2)/teste3
+prob4 = len(mr2)/teste3
+print(prob0,prob1,prob2,prob3,prob4)
+
+
+# In[14]:
+
+
+#calcula a prob de estar la
+resposta_teste = classifica(frase_cortada)
+print(resposta_teste)
+
+
+# In[15]:
+
+
+certo = 0
+numer = []
+for index, row in test.iterrows():
+
+    r = classifica(text_preproc(row['Teste']).split())
+    if r == row['Classificação']:
+        certo += 1
+    numer.append(r)
+print(certo/len(test))
+
+
+# ___
+# ### Concluindo
+
+# Esse classificador Naive Bayes tem acurácia de aproximadamente 35%. Para ter um melhor desempenho acreditamos que uma base de dados maior é crucial, uma vez que a atual tem apenas 1252 tweets.
+# Como está ainda em desenvolvimento, se usássemos esse classificador para gerar novos testes, os resultados seriam muito pouco confiáveis, causando mais trabalho humano para conferir os erros do programa.
+
+# In[16]:
+
+
+#pd.crosstab
+#7.287652889894787e-21 2.2356700847218367e-21 4.095410086202224e-18 2.2833059694145683e-21 1.5639508683573829e-15
+
+
+# In[17]:
+
+
+#falsos positivos
+
+
+# ___
+# ### Qualidade do Classificador a partir de novas separações dos tweets entre Treinamento e Teste
+# 
+# Caso for fazer esse item do Projeto
+
+# In[18]:
+
+
+#sk.learn
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# ___
+# ## Aperfeiçoamento:
+# 
+# Trabalhos que conseguirem pelo menos conceito B vão evoluir em conceito dependendo da quantidade de itens avançados:
+# 
+# * IMPLEMENTOU outras limpezas e transformações que não afetem a qualidade da informação contida nos tweets. Ex: stemming, lemmatization, stopwords
+# * CORRIGIU separação de espaços entre palavras e emojis ou entre emojis e emojis
+# * CRIOU categorias intermediárias de relevância baseadas na probabilidade: ex.: muito relevante, relevante, neutro, irrelevante, muito irrelevante. Pelo menos quatro categorias, com adição de mais tweets na base, conforme enunciado. (OBRIGATÓRIO PARA TRIOS, sem contar como item avançado)
+# * EXPLICOU porquê não pode usar o próprio classificador para gerar mais amostras de treinamento
+# * PROPÔS diferentes cenários para Naïve Bayes fora do contexto do projeto
+# * SUGERIU e EXPLICOU melhorias reais com indicações concretas de como implementar (indicar como fazer e indicar material de pesquisa)
+# * FEZ o item 6. Qualidade do Classificador a partir de novas separações dos tweets entre Treinamento e Teste descrito no enunciado do projeto (OBRIGATÓRIO para conceitos A ou A+)
+
+# ___
+# ## Referências
+
+# [Naive Bayes and Text Classification](https://arxiv.org/pdf/1410.5329.pdf)  **Mais completo**
+# 
+# [A practical explanation of a Naive Bayes Classifier](https://monkeylearn.com/blog/practical-explanation-naive-bayes-classifier/) **Mais simples**
+
+# [Cleaning Text Data with Python](https://towardsdatascience.com/cleaning-text-data-with-python-b69b47b97b76) **Para formatação do texto**
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[19]:
+
+
+def corta_frase(frase):
+    tt = frase.lower()
+    tt10 = cleanup(tt)
+    xa = re.sub(r'\w*\d+\w*', '', tt10)
+    xb = re.sub("@\S+", " ", xa)
+    xc = re.sub("https*\S+", " ", xb)
+    xd = limpa_txt(xc)
+    return xd
+
+
+# In[20]:
+
+
+cross = test
+cross['Calculado'] = numer
+pd.crosstab(cross.Classificação,cross.Calculado)
+
+
+# In[21]:
+
+
+cross
+
