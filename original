@@ -29,16 +29,6 @@ from nltk.corpus import stopwords
 #nltk.download('stopwords')
 pd.set_option("display.max_colwidth", None)
 
-def cleanup(text):
-    """
-        Função de limpeza muito simples que troca alguns sinais básicos por espaços
-    """
-    #import string
-    punctuation = '[!-.:?;]' # Note que os sinais [] são delimitadores de um conjunto.
-    pattern = re.compile(punctuation)
-    text_subbed = re.sub(pattern, '', text)
-    return text_subbed
-
 
 # In[2]:
 
@@ -86,7 +76,17 @@ test.head(5)
 
 
 from typing import Awaitable
+#Aqui nós estamos definindo as funções. Essa célula contém as funções responsáveis pela limpeza do texto.
 
+def cleanup(text):
+    """
+        Função de limpeza muito simples que troca alguns sinais básicos por espaços
+    """
+    #import string
+    punctuation = '[!-.:?;]' # Note que os sinais [] são delimitadores de um conjunto.
+    pattern = re.compile(punctuation)
+    text_subbed = re.sub(pattern, '', text)
+    return text_subbed
 
 def limpa_txt(txt):
   carac = ['\n', ':', '"', '`', '!', '?', ';','(',')', '[', ']', '%', '&', ',', '.', '@', '/']
@@ -136,8 +136,11 @@ def corta_frase(frase):
     return xd
 
 
-# In[7]:
+# In[14]:
 
+
+#Nessa célula tem as funções relacionadas ao processo de obtenção da classificação do tweet.
+#A função Classifica faz os cálculos das probabilidades (basicamente o código da aula 7 - Classificador Camões/Lusíadas)
 
 def classifica(frase_cortada):
     resps = []
@@ -147,7 +150,6 @@ def classifica(frase_cortada):
     probFraseDado2 = 1
     probFraseDado3 = 1
     probFraseDado4 = 1
-
 
     while i < len(frase_cortada):
         
@@ -187,17 +189,20 @@ def classifica(frase_cortada):
         return 3
     if max(resps) == resp4:
         return 4
-    
+
+#A função Accuracy calcula a precisão do classificador. Para tanto, ela pega os valores retornados da função Classifica e vê se são os mesmos presentes no dataframe.
+
 def accuracy():
     certo = 0
+    numer = []
     for index, row in test.iterrows():
-
         r = classifica(corta_frase(row['Teste']))
         if r == row['Classificação']:
             certo += 1
     numer.append(r)
     return certo/len(test)
 
+#Aqui estão os cálculos da suavização de Laplace. Criamos uma função para cada classificação.
 def laplace0(x):
     if x not in tabela_tts_mir:
         qtd = 1
@@ -247,14 +252,9 @@ def laplace4(x):
 # In[8]:
 
 
-# len(set(serie_tweets_geral))
-
-
-# In[9]:
-
-
-# qtd = train.groupby('Classificação').size().div(len(train))
-# qtd
+#Aqui é o começo do caminho de classificação. 
+#O primeiro passo é criar dataframes só com os tweets de cada categoria
+#Fazemos isso usando a função loc do pandas
 
 filtra_linhas_0 = train['Classificação'] == 0
 mir = train.loc[filtra_linhas_0, :]
@@ -274,12 +274,27 @@ mr = train.loc[filtra_linhas_4, :]
 
 #/----------------------------------------------------/
 
+#Agora que temos dataframes com tweets de mesma classificação, vamos começar a limpar os textos
+#O primeiro passo é transformar todas as linhas da coluna "Treinamento" em uma string MUITO grande
+
 m_i_r = mir['Treinamento'].to_string().lower()
+
+#Agora nós passamos a string na função que limpa URLs, menções e outros marcadores que podem prejudicar o classificador
+#Como faz parte da rubrica, nós deixamos os emojis dentro da string
+
 m_i_r2 = text_preproc(m_i_r)
+
+#Essa linha agora simplesmente separa a string em uma lista gigante de palavras
 m_i_r3 = m_i_r2.split()
+
+#Criamos uma Series para usar o value_counts
 serie_tweets0 = pd.Series(m_i_r3)
+
+#Por fim, criamos uma tabela de tweets relativa (mostra a porcentagem da palavra) e uma geral (mostra quantas vezes apareceu)
 tabela_tts_mir_relativa = serie_tweets0.value_counts(True)
 tabela_tts_mir = serie_tweets0.value_counts()
+
+#Repetimos esse processo para todas as classes
 
 ir_1 = ir['Treinamento'].to_string().lower()
 ir2 = text_preproc(ir_1)
@@ -317,9 +332,10 @@ tabela_tts_geral_relativa = serie_tweets_geral.value_counts(True)
 tabela_tts_geral = serie_tweets_geral.value_counts()
 
 
-# In[10]:
+# In[9]:
 
 
+#Essa célula cria a variável universal. Ela tem o valor da quantidade de todas as palavras presentes nos tweets.
 todos = [m_i_r2, ir2, n2, r_2, mr2]
 i = 0
 tabela_geral = ''
@@ -327,11 +343,11 @@ while i < len(todos):
     tabela_geral += todos[i]
     i += 1
 i = 0
-teste3 = 0
+universal = 0
 while i < len(todos):
-    teste3 += len(todos[i])
+    universal += len(todos[i])
     i += 1
-print(teste3)
+print(universal)
 
 todas_palavras = tabela_geral.split()
 serie_geral = pd.Series(todas_palavras)
@@ -339,9 +355,10 @@ serie_geral = pd.Series(todas_palavras)
 tabela_geral_relativa = serie_geral.value_counts(True)
 
 
-# In[11]:
+# In[10]:
 
 
+#Aqui nõs pegamos um tweet aleatório para testar
 tt = test['Teste'].sample().to_string().lower()
 print(tt)
 
@@ -358,7 +375,7 @@ print(xd)
 # 
 # Agora você deve testar o seu classificador com a base de Testes.
 
-# In[12]:
+# In[11]:
 
 
 frase_cortada = xd.split()
@@ -367,33 +384,31 @@ frase_cortada = xd.split()
 print(frase_cortada)
 
 
-# In[13]:
+# In[16]:
 
 
-prob0 = len(m_i_r2)/teste3
-prob1 = len(ir2)/teste3
-prob2 = len(n2)/teste3
-prob3 = len(r_2)/teste3
-prob4 = len(mr2)/teste3
+prob0 = len(m_i_r2)/universal
+prob1 = len(ir2)/universal
+prob2 = len(n2)/universal
+prob3 = len(r_2)/universal
+prob4 = len(mr2)/universal
 print(prob0,prob1,prob2,prob3,prob4)
 
 
-# In[14]:
+# In[17]:
 
 
-#calcula a prob de estar la
-resposta_teste = classifica(frase_cortada)
-print(resposta_teste)
+print(classifica(frase_cortada))
 
 
-# In[15]:
+# In[23]:
 
 
+#Aqui nós passamos a testar com todos os elementos da tabela test. Após isso começamos a cruzar os dados.
 certo = 0
 numer = []
 for index, row in test.iterrows():
-
-    r = classifica(text_preproc(row['Teste']).split())
+    r = classifica(text_preproc(row['Teste']))
     if r == row['Classificação']:
         certo += 1
     numer.append(r)
@@ -403,14 +418,17 @@ print(certo/len(test))
 # ___
 # ### Concluindo
 
-# Esse classificador Naive Bayes tem acurácia de aproximadamente 35%. Para ter um melhor desempenho acreditamos que uma base de dados maior é crucial, uma vez que a atual tem apenas 1252 tweets.
+# Esse classificador Naive Bayes tem acurácia de aproximadamente 55%. Para ter um melhor desempenho acreditamos que uma base de dados maior é crucial, uma vez que a atual tem apenas 1252 tweets.
 # Como está ainda em desenvolvimento, se usássemos esse classificador para gerar novos testes, os resultados seriam muito pouco confiáveis, causando mais trabalho humano para conferir os erros do programa.
 
-# In[16]:
+# In[22]:
 
 
 #pd.crosstab
-#7.287652889894787e-21 2.2356700847218367e-21 4.095410086202224e-18 2.2833059694145683e-21 1.5639508683573829e-15
+cross = test
+cross['Classificador'] = numer
+cross
+pd.crosstab(cross.Classificador,cross.Classificação)
 
 
 # In[17]:
@@ -464,18 +482,6 @@ print(certo/len(test))
 
 # [Cleaning Text Data with Python](https://towardsdatascience.com/cleaning-text-data-with-python-b69b47b97b76) **Para formatação do texto**
 
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
 # In[19]:
 
 
@@ -490,14 +496,6 @@ def corta_frase(frase):
 
 
 # In[20]:
-
-
-cross = test
-cross['Calculado'] = numer
-pd.crosstab(cross.Classificação,cross.Calculado)
-
-
-# In[21]:
 
 
 cross
